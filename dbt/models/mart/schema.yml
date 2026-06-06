@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: daily_revenue
+    description: "Daily revenue by country and category. Powers main business dashboard."
+    columns:
+      - name: order_date
+        tests: [not_null]
+      - name: country
+        tests: [not_null]
+      - name: category
+        tests: [not_null]
+      - name: gross_revenue
+        tests: [not_null]
+      - name: order_count
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 1"
+
+  - name: customer_retention
+    description: "Monthly cohort retention rates."
+    columns:
+      - name: cohort_month
+        tests: [not_null]
+      - name: retention_rate_pct
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "between 0 and 100"
+
+  - name: top_products
+    description: "Product performance — revenue, units sold, refund rate."
+    columns:
+      - name: product_id
+        tests: [not_null, unique]
+      - name: total_revenue
+        tests: [not_null]

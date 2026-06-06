@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "ecommerce-pipeline"
+version = "1.0.0"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [".git", "__pycache__", "dist", "build", ".venv", "dbt/target"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "N"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src", "etl", "pipeline"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = ["-v", "--tb=short", "--strict-markers"]
+markers = [
+    "unit: fast unit tests (no external services)",
+    "integration: requires live Postgres",
+    "slow: long-running tests",
+]
+
+[tool.coverage.run]
+source = ["src", "etl", "pipeline"]
+omit = ["*/tests/*", "scripts/*"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 75
+show_missing = true

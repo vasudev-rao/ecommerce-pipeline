@@ -1,0 +1,31 @@
+database:
+  host: localhost
+  port: 5432
+  name: ecommerce_db
+  user: ecommerce_user
+  password: changeme
+  pool_size: 5
+
+bigquery:
+  project_id: your-gcp-project
+  dataset_raw: ecommerce_raw
+  dataset_staging: ecommerce_staging
+  dataset_mart: ecommerce_mart
+  location: US
+
+s3:
+  bucket: ecommerce-pipeline-data
+  region: us-east-1
+  raw_prefix: raw
+  processed_prefix: processed
+
+pipeline:
+  batch_chunk_size: 5000
+  schedule_cron: "0 2 * * *"
+  lookback_days: 1
+  data_retention_days: 90
+
+observability:
+  log_level: INFO
+  log_format: json
+  slack_webhook_url: ""

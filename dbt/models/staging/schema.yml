@@ -1,0 +1,64 @@
+version: 2
+
+sources:
+  - name: ecommerce_raw
+    database: "{{ env_var('BQ_PROJECT_ID') }}"
+    schema: ecommerce_raw
+    tables:
+      - name: orders
+        columns:
+          - name: order_id
+            tests: [not_null, unique]
+          - name: customer_id
+            tests: [not_null]
+          - name: status
+            tests:
+              - accepted_values:
+                  values: [pending, confirmed, shipped, delivered, cancelled, refunded]
+          - name: total_amount
+            tests: [not_null]
+      - name: customers
+        columns:
+          - name: customer_id
+            tests: [not_null, unique]
+          - name: email
+            tests: [not_null, unique]
+      - name: products
+        columns:
+          - name: product_id
+            tests: [not_null, unique]
+          - name: price
+            tests: [not_null]
+      - name: order_items
+        columns:
+          - name: item_id
+            tests: [not_null, unique]
+          - name: order_id
+            tests: [not_null]
+
+models:
+  - name: stg_orders
+    description: "Cleaned and standardised orders. One row per order_id."
+    columns:
+      - name: order_id
+        tests: [not_null, unique]
+      - name: customer_id
+        tests: [not_null]
+      - name: status
+        tests:
+          - accepted_values:
+              values: [pending, confirmed, shipped, delivered, cancelled, refunded]
+      - name: total_amount
+        tests: [not_null]
+
+  - name: stg_customers
+    description: "Cleaned customers with segments and lifetime value."
+    columns:
+      - name: customer_id
+        tests: [not_null, unique]
+      - name: email
+        tests: [not_null]
+      - name: customer_segment
+        tests:
+          - accepted_values:
+              values: [new, returning, loyal]

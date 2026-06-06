@@ -1,0 +1,150 @@
+version: "3.9"
+
+x-airflow-env: &airflow-env
+  AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+  AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+  AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
+  DB_HOST: source-db
+  DB_PORT: "5432"
+  DB_NAME: ecommerce_db
+  DB_USER: ecommerce_user
+  DB_PASSWORD: changeme
+
+services:
+
+  # ── Source database (e-commerce transactional DB) ──────────────────────────
+  source-db:
+    image: postgres:15-alpine
+    container_name: ecommerce-source-db
+    environment:
+      POSTGRES_DB: ecommerce_db
+      POSTGRES_USER: ecommerce_user
+      POSTGRES_PASSWORD: changeme
+    volumes:
+      - source_db_data:/var/lib/postgresql/data
+      - ../scripts/setup_source_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecommerce_user -d ecommerce_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Airflow metadata database ──────────────────────────────────────────────
+  airflow-db:
+    image: postgres:15-alpine
+    container_name: ecommerce-airflow-db
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Airflow init (run once) ────────────────────────────────────────────────
+  airflow-init:
+    image: apache/airflow:2.8-python3.11
+    container_name: ecommerce-airflow-init
+    environment: *airflow-env
+    command: >
+      bash -c "
+        airflow db migrate &&
+        airflow users create
+          --username admin --password admin
+          --firstname Admin --lastname User
+          --role Admin --email admin@example.com
+      "
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+
+  # ── Airflow scheduler ──────────────────────────────────────────────────────
+  airflow-scheduler:
+    image: apache/airflow:2.8-python3.11
+    container_name: ecommerce-airflow-scheduler
+    environment: *airflow-env
+    command: scheduler
+    volumes:
+      - ../dags:/opt/airflow/dags:ro
+      - ../etl:/opt/airflow/etl:ro
+      - ../pipeline:/opt/airflow/pipeline:ro
+      - ../src:/opt/airflow/src:ro
+      - ../dbt:/opt/airflow/dbt:ro
+      - airflow_logs:/opt/airflow/logs
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      source-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Airflow webserver ──────────────────────────────────────────────────────
+  airflow-webserver:
+    image: apache/airflow:2.8-python3.11
+    container_name: ecommerce-airflow-webserver
+    environment: *airflow-env
+    command: webserver
+    volumes:
+      - ../dags:/opt/airflow/dags:ro
+      - ../etl:/opt/airflow/etl:ro
+      - ../pipeline:/opt/airflow/pipeline:ro
+      - ../src:/opt/airflow/src:ro
+      - airflow_logs:/opt/airflow/logs
+    ports:
+      - "8080:8080"
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Metabase BI dashboard ──────────────────────────────────────────────────
+  metabase:
+    image: metabase/metabase:latest
+    container_name: ecommerce-metabase
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: "5432"
+      MB_DB_USER: metabase
+      MB_DB_PASS: metabase
+      MB_DB_HOST: metabase-db
+    depends_on:
+      metabase-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  metabase-db:
+    image: postgres:15-alpine
+    container_name: ecommerce-metabase-db
+    environment:
+      POSTGRES_DB: metabase
+      POSTGRES_USER: metabase
+      POSTGRES_PASSWORD: metabase
+    volumes:
+      - metabase_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metabase -d metabase"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  source_db_data:
+  airflow_db_data:
+  airflow_logs:
+  metabase_db_data:
