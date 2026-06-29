@@ -3,8 +3,6 @@
 > Daily batch pipeline: PostgreSQL → pandas ETL → BigQuery → dbt → Metabase dashboard.
 > Processes 50,000+ orders/day. Fully runnable on a laptop at zero cost.
 
----
-
 ## What it does
 
 1. **Extracts** orders, customers, products from a PostgreSQL source DB (watermark-based — only new/changed rows)
@@ -14,11 +12,23 @@
 5. **Transforms** with dbt — staging views + mart tables
 6. **Visualises** in Metabase — revenue, retention, top products
 
----
+## Architecture
+
+```mermaid
+flowchart LR
+    A[PostgreSQL\nsource DB] --> B[Python/pandas\nextract + clean + enrich]
+    B --> C[BigQuery\nparquet load]
+    C --> D[dbt\nstaging + mart models]
+    D --> E[Metabase\ndashboard]
+    F[Airflow] -.orchestrates daily.-> B
+    F -.orchestrates daily.-> C
+    F -.orchestrates daily.-> D
+```
 
 ## Quickstart (5 minutes)
 
 ### Prerequisites
+
 - Python 3.11+
 - Docker + Docker Compose
 - Make
@@ -26,7 +36,7 @@
 ### 1. Install
 
 ```bash
-git clone https://github.com/vasudevarao/ecommerce-pipeline.git
+git clone https://github.com/vasudev-rao/ecommerce-pipeline.git
 cd ecommerce-pipeline
 make install-dev
 cp .env.example .env
@@ -69,8 +79,6 @@ make test-int      # Requires Docker Postgres running
 make coverage      # Unit tests + HTML coverage report
 ```
 
----
-
 ## Project structure
 
 ```
@@ -94,8 +102,6 @@ ecommerce-pipeline/
 └── tests/              25+ unit tests · integration tests
 ```
 
----
-
 ## Tech stack
 
 | Layer | Tool |
@@ -111,8 +117,6 @@ ecommerce-pipeline/
 
 **Total infrastructure cost: $0/month** on BigQuery free tier + AWS free tier EC2/S3.
 
----
-
 ## Local vs cloud
 
 | Component | Local (dev) | Cloud (prod) |
@@ -124,8 +128,6 @@ ecommerce-pipeline/
 
 No code changes needed — set env vars to switch between local and cloud.
 
----
-
 ## Backfill
 
 ```bash
@@ -134,27 +136,21 @@ airflow dags trigger ecommerce_backfill \
     --conf '{"start_date": "2024-01-01", "end_date": "2024-01-31"}'
 ```
 
----
-
 ## Design decisions
 
-**Why pandas over Spark?** At 50k orders/day, pandas is 10x simpler and runs on a single
-EC2 t3.micro. Spark adds complexity and cost without benefit at this scale.
+**Why pandas over Spark?** At 50k orders/day, pandas is 10x simpler and runs on a single EC2 t3.micro. Spark adds complexity and cost without benefit at this scale.
 
-**Why BigQuery free tier?** 1 TB of queries/month free forever. No server to manage.
-DuckDB is also embedded in the pipeline as a zero-config local alternative.
+**Why BigQuery free tier?** 1 TB of queries/month free forever. No server to manage. DuckDB is also embedded in the pipeline as a zero-config local alternative.
 
-**Why watermark over full extract?** A full daily extract of 2 years of orders would take
-minutes and hammer the source DB. Watermark extraction takes seconds and is invisible to
-production traffic.
+**Why watermark over full extract?** A full daily extract of 2 years of orders would take minutes and hammer the source DB. Watermark extraction takes seconds and is invisible to production traffic.
 
-**Why dbt on top of raw BigQuery tables?** All business logic is in SQL, version-controlled,
-and testable with `dbt test`. Analysts can read and modify mart definitions without touching
-Python code.
-
----
+**Why dbt on top of raw BigQuery tables?** All business logic is in SQL, version-controlled, and testable with `dbt test`. Analysts can read and modify mart definitions without touching Python code.
 
 ## Author
 
 Vasudev A Rao — Senior Data Engineer
-[vasudevarao.com](https://vasudevarao.com) · [GitHub](https://github.com/vasudevarao)
+[vasudevarao.com](https://vasudevarao.com) · [GitHub](https://github.com/vasudev-rao)
+
+## License
+
+MIT
